@@ -3,7 +3,7 @@ title: "Claude Code hooksを47本実装した話：AIへの自動指示を設計
 emoji: "🪝"
 type: "tech"
 topics: ["claudecode", "automation", "bestpractices", "windows"]
-published: false
+published: true
 ---
 
 ## TL;DR
