@@ -13,6 +13,20 @@ published: false
 - 重要なのはツールではなく「3レイヤー設計（収集/処理/出力）」という構造の考え方
 - Make（旧Integromat）・Zapierとの比較、セルフホスト環境の構成も解説
 
+:::message
+**環境**: AMD Radeon / RAM 32GB の自宅NUCマシン（NUCBOX-M7）でn8nをセルフホスト。月額コストはほぼゼロ。
+:::
+
+---
+
+## この記事でわかること
+
+- n8n をセルフホストして55本のWFを運用する設計方針
+- Make / Zapier との違いとn8nを選ぶべき理由
+- 3レイヤー設計（収集/処理/出力）の具体的な実装
+- Claude Code が n8n API を直接叩いてWFを自動修正するパターン
+- DLQ（Dead Letter Queue）パターンによる障害復旧設計
+
 ---
 
 ## 毎朝Slackに届くもの
@@ -54,10 +68,9 @@ published: false
 
 **1. セルフホスト可能**
 
-n8n はセルフホストできる。俺の場合 Docker で自宅の NUC マシン（AMD Radeon / RAM 32GB）で動いている。クラウドサービスへのデータ送出を最小限にできるし、月額コストがゼロだ。
+n8n はセルフホストできる。クラウドサービスへのデータ送出を最小限にできるし、月額コストがゼロだ。
 
-```yaml
-# docker-compose.yml（最小構成）
+```yaml:docker-compose.yml（n8n最小構成）
 services:
   n8n:
     image: n8nio/n8n:latest
@@ -74,25 +87,33 @@ services:
 
 n8n の Code ノード（JavaScript）を使えば、API が存在しないサービスへの操作やカスタムロジックが書ける。Make や Zapier では無理なことが多い。
 
-```javascript
-// n8n Code ノード: Obsidian の未整理ノートを取得して分類する
-// ← こういうカスタムロジックが書けるのが n8n の強み
+:::message alert
+**n8n Code ノードのサンドボックス制約**: コンテナ内で動くため `process.env.X` は使えない。`$env.X` を使うこと。`new URL()` も使えない（`require('url').URL` を使う）。
+:::
 
-const notes = $input.all();
-const untagged = notes.filter(n => !n.json.frontmatter?.tags?.length);
-const result = await classifyNotes(untagged);
-return result;
+```javascript:n8n Code ノード（制約対応版）
+// NG: process.env は使えない
+const key = process.env.ANTHROPIC_API_KEY;
+
+// OK: $env を使う
+const key = $env.ANTHROPIC_API_KEY ?? '';
+
+// NG: new URL() はサンドボックスで動かない
+const url = new URL('https://api.example.com/path');
+
+// OK: require で URL を取得
+const { URL: _URL } = require('url');
+const url = new _URL('https://api.example.com/path');
 ```
 
 **3. Claude Code との相性**
 
-WFの設計・デバッグを Claude Code に任せられる。「このWFのコードノードを修正して」と言うだけで直してくれる。AI でWFを作る時代になった。
+WFの設計・デバッグを Claude Code に任せられる。「このWFのコードノードを修正して」と言うだけで直してくれる。
 
 ```
 俺:     「WF-X-ANALYZE の Code ノードが TypeError を出している」
-Claude: 「エラーを確認します。n8n の Code ノードでは new URL() が使えないため、
-         require('url').URL を使う必要があります。以下に修正します」
-俺:     「じゃあそのまま n8n API 経由でインポートして」
+Claude: 「エラーを確認します。new URL() は n8n サンドボックスで使えないため、
+         require('url').URL を使う必要があります。修正して n8n API 経由でインポートします」
 Claude: [自動でAPIに PUT リクエスト → WFを更新]
 ```
 
@@ -104,13 +125,15 @@ Claude: [自動でAPIに PUT リクエスト → WFを更新]
 
 55本のWFを分類すると、3つのレイヤーに収まる。
 
+:::message
+**設計の核心**: 「収集だけあっても出力がなければ機能しない。処理が弱ければ情報が溜まるだけになる。」この3レイヤーをすべて揃えて初めてシステムが動く。
+:::
+
 ```
 Layer 1: 収集レイヤー（情報を集める）
 Layer 2: 処理レイヤー（情報を変換・分析する）
 Layer 3: 出力レイヤー（外部に出力する）
 ```
-
-重要なのは「ツール単体を使う」のではなく、**この3レイヤーを意識して設計する**ことだ。
 
 ---
 
@@ -128,45 +151,29 @@ Layer 3: 出力レイヤー（外部に出力する）
 | WF-EMBED | 毎時 | Obsidian vault | ノート全件（差分のみ） |
 | WF-TRIAGE | 毎時 | Obsidian inbox | 未整理ノート |
 | WF-SS-1 | 毎日 | スクリーンショット | 画像 → Obsidian保存 |
-| WF-LIE-01 | 毎日 | RSSフィード | SNS最適化情報 |
 | WF-CLIP-DIGEST | Webhook | Chrome拡張 | Webページのクリップ |
 
 ### 収集量（1日あたりの実績）
 
 ```
-Xブックマーク:  10〜30件/日
-AIニュース:     50〜100件/日（フィルタリング後 5〜10件）
-Obsidianノート: 20〜40件更新/日
+Xブックマーク:      10〜30件/日
+AIニュース:         50〜100件/日（フィルタリング後 5〜10件）
+Obsidianノート更新: 20〜40件/日
 スクリーンショット: 5〜15件/日
 ```
 
 ### 収集レイヤーの設計原則
 
-**原則1: 収集は徹底的に、処理は後で**
-
-収集時に「これは重要か？」を判断しない。全部収集して、Layer 2 で処理する。
-
-```javascript
-// NG: 収集時にフィルタリング → 重要な情報を見落とす可能性
-const notes = await getBookmarks({ minLikes: 100 });
-
-// OK: 全件収集 → スコアリングは処理レイヤーで
-const notes = await getBookmarks({ limit: 100 });
-```
-
-**原則2: 収集エラーは全体を止めない**
-
-1つのフィードが死んでも他の収集は続く設計にする。
-
-```javascript
+```javascript:収集時のエラーハンドリング
+// 1つのフィードが死んでも他の収集は続く設計
 for (const feed of feeds) {
   try {
     const items = await fetchFeed(feed.url);
     results.push(...items);
   } catch (err) {
-    // エラーをログに記録して続行
+    // エラーをログに記録して続行（全体を止めない）
     await logError('WF-AI-NEWS', feed.url, err.message);
-    continue;  // ← これが重要
+    continue;
   }
 }
 ```
@@ -188,26 +195,9 @@ for (const feed of feeds) {
 | WF-BRIEF-TRIAGE | 毎時 | Briefの品質スコアリング | 優先度付き一覧 |
 | WF-X-DRAFT | Webhook | ブックマーク→X投稿生成 | Supabaseにdraft保存 |
 
-### WF-DAILY-BRIEF の処理フロー
-
-```
-入力: 昨日のXブックマーク（生データ）
-  ↓
-Step 1: 重複排除（同じURLが複数あれば1件に）
-  ↓
-Step 2: スコアリング（いいね数・引用数・著者フォロワー数で重み付け）
-  ↓
-Step 3: Top 5 を Claude API で要約（重要度・TYLとの関連性を含む）
-  ↓
-Step 4: 今日のタスク一覧と合わせてブリーフィングを生成
-  ↓
-出力: Slack #lab-daily に送信
-```
-
 ### スコアリングロジックの例
 
-```javascript
-// WF-BRIEF-TRIAGE のスコアリング
+```javascript:WF-BRIEF-TRIAGE（スコアリング）
 function scoreNote(note) {
   let score = 0;
   
@@ -216,20 +206,19 @@ function scoreNote(note) {
   score += Math.min(note.retweets * 3, 30);
   
   // TYLとの関連性ボーナス
-  const keywords = ['claude', 'n8n', 'obsidian', '副業', '自動化', 'automation'];
+  const keywords = ['claude', 'n8n', 'obsidian', '副業', '自動化'];
   const relevance = keywords.filter(kw => 
     note.content.toLowerCase().includes(kw)
   ).length;
   score += relevance * 5;
   
-  // 著者のフォロワー数ボーナス（対数スケール）
+  // 著者フォロワー数ボーナス（対数スケール）
   score += Math.log10(note.author_followers + 1) * 2;
   
   return Math.min(score, 100);
 }
+// スコア 75+ → 自動でBrief候補に昇格
 ```
-
-スコアが 75 以上は「今日の有望コンテンツ」として自動でBrief候補に昇格する。
 
 ---
 
@@ -241,39 +230,32 @@ function scoreNote(note) {
 
 | WF名 | トリガー | 出力先 | 承認フロー |
 |---|---|---|---|
-| WF-X-SCHEDULER | Slack承認後 | X（自動投稿） | Slack #lab-xで承認 |
+| WF-X-SCHEDULER | Slack承認後 | X（自動投稿） | Slack #lab-x で承認 |
 | WF-DAILY-NOTE | 毎朝 6:30 | Obsidian | 自動（承認不要） |
 | WF-WEEKLY-RPT | 毎週月曜 | Slack | 自動（レポートのみ） |
-| WF-ZENN-TRIAGE | 毎日 9:00 | GitHub→Zenn | Slack #lab-zennで承認 |
-| WF-NOTE-PUBLISH | Webhook | note.com | Slack承認後 |
+| WF-ZENN-TRIAGE | 毎日 9:00 | GitHub→Zenn | Slack #lab-zenn で承認 |
 | WF-POKEMON-DAILY | 毎日 | Supabase+Slack | 自動 |
 
-### 出力レイヤーの設計原則
-
-**原則: 外部への出力は必ず人間承認を経由する**
-
-X・note・Zenn への公開は、AIが準備した下書きを Slack で確認してから承認する。承認ボタンを押すと Webhook が叩かれて実際の投稿が実行される。
-
-```
-AI が下書き生成 → Slack に通知 → 人間が確認・承認 → 自動投稿
-```
-
-全自動投稿にしない理由は「AIが生成したコンテンツをノーチェックで出すリスク」だ。1回のミスが信頼を大きく損なう。
+:::message
+**外部投稿は必ず人間承認を経由する**。全自動投稿にしない理由は「AIが生成したコンテンツをノーチェックで出すリスク」。1回のミスが信頼を大きく損なう。
+:::
 
 ---
 
 ## Claude Code との連携：WFをAIに任せる実装
 
-n8n のWFを作る・直す作業を Claude Code に任せると、効率が跳ね上がった。
-
 ### Claude が n8n API を直接叩く
 
-```python
-# Claude Code が n8n REST API 経由でWFを更新
+```python:n8n_deploy.py（Claude Code が使う）
 import json, urllib.request
 
 def update_workflow(wf_id, payload, api_key, base_url="http://localhost:5679"):
-    data = json.dumps(payload, ensure_ascii=False).encode('utf-8')
+    # PUT で送れるフィールドは name/nodes/connections/settings のみ
+    # id/active/tags/createdAt は read-only → 送ると400エラー
+    safe_payload = {k: v for k, v in payload.items()
+                    if k in ('name', 'nodes', 'connections', 'settings', 'staticData')}
+    
+    data = json.dumps(safe_payload, ensure_ascii=False).encode('utf-8')
     req = urllib.request.Request(
         f"{base_url}/api/v1/workflows/{wf_id}",
         data=data,
@@ -285,106 +267,13 @@ def update_workflow(wf_id, payload, api_key, base_url="http://localhost:5679"):
     )
     with urllib.request.urlopen(req) as r:
         return json.load(r)
-
-# PUT で送れるフィールドは name/nodes/connections/settings のみ
-# id/active/tags/createdAt 等は read-only → 送ると400エラー
-payload = {
-    "name": wf["name"],
-    "nodes": wf["nodes"],
-    "connections": wf["connections"],
-    "settings": wf.get("settings", {})
-}
-```
-
-### WF設計のセッション例
-
-```
-# セッション1: エラー修正
-俺:     「WF-X-ANALYZE の Code ノードが TypeError: Cannot read property 'data' of undefined」
-Claude: 「入力データが undefined の場合のガードが必要です。修正します」
-        [n8n API で PUT → 自動更新]
-俺:     「確認して」
-Claude: [n8n UI で実行 → ログ確認] 「正常に実行されました」
-
-# セッション2: 新規WF作成
-俺:     「毎朝のnote記事候補をObsidianから取得してSlackに送るWFを作りたい」
-Claude: [SPEC確認 → JSON生成 → n8n API で POST → 新規WF作成]
-        「WF-NOTE-TRIAGE を作成しました。ID: xxxxxxxx。動作確認しますか？」
 ```
 
 ---
 
-## システム全体のコスト
+## エラーハンドリング：DLQパターンで障害復旧
 
-55本のWFを動かすための月次コスト。
-
-| 項目 | 月次コスト | 備考 |
-|---|---|---|
-| n8n（セルフホスト） | 0円 | NUCマシンの電気代のみ |
-| Anthropic API | 2,000〜5,000円 | WF内のClaude呼び出し |
-| Supabase | 0円 | Free tier（pgvector含む） |
-| GitHub Actions | 0円 | Free tier内 |
-| Vercel | 0円 | Free tier |
-| 電気代（NUC 24時間稼働） | 約800円/月 | 15W × 24h × 30日 × 27円/kWh |
-
-**合計: 3,000〜6,000円/月**
-
-これで55本のWFが24時間365日稼働する。同等の機能を Make + Zapier + API サービスで実現しようとすると、月数万円になる。
-
----
-
-## 「副業」との接続
-
-このシステムを副業に使うには、**出力レイヤーが収益に繋がっている必要がある**。
-
-俺の場合：
-
-```
-X投稿（自動生成→承認→投稿）
-  ↓
-フォロワー獲得（現在 1,400+）
-  ↓
-note / TYL への誘導
-
-Zenn記事（Obsidian → WF-ZENN-TRIAGE → 自動公開）
-  ↓
-Google検索流入
-  ↓
-think-you-lab.vercel.app → TYL月額会員
-
-Obsidianナレッジ
-  ↓
-Claude Code セッション効率化
-  ↓
-実装速度向上 → 教材化
-```
-
-「自動化したこと」が直接お金になるのではなく、**自動化がコンテンツ発信の速度と質を上げ、それが収益に繋がる**という構造だ。
-
----
-
-## 55本のWFを管理するためのインフラ
-
-WFが増えるにつれて「WFの管理」が問題になった。
-
-### WF一元管理の仕組み
-
-```
-n8n_workflows/    ← WF JSONの正本（git管理）
-  WF-EMBED.json
-  WF-TRIAGE.json
-  WF-MOC.json
-  ...（55本）
-
-docs/
-  SPEC-n8n-skill.md  ← 全WFの仕様・既知エラー・デプロイ手順
-
-tools/n8n-ci/
-  n8n-wf-lint.mjs    ← 全WFの自動lint（pre-push hookで必須実行）
-```
-
-### エラーハンドリングの仕組み
-
+:::details DLQ（Dead Letter Queue）パターンの全体設計
 ```
 WF実行 → エラー発生
   ↓
@@ -396,10 +285,53 @@ Slack #lab-n8n に通知
   ↓
 WF-DLQ-RETRY（hourlyで自動リトライ）
   ↓
-3回失敗で abandoned → 毎朝の WF-OPS-FAILURE-REPORT に記載
+3回失敗で abandoned → 毎朝 WF-OPS-FAILURE-REPORT に記載
 ```
 
-この「DLQ（Dead Letter Queue）パターン」で、一時的な外部APIのダウンや rate limit による失敗を自動でリカバリーできる。
+全WFの設定：
+```json
+{
+  "settings": {
+    "errorWorkflow": "IAARcITmwrAsHjpY"  // WF-ERROR-HANDLER の ID
+  }
+}
+```
+:::
+
+一時的な外部APIのダウンや rate limit による失敗を自動でリカバリーできる。
+
+---
+
+## システム全体のコスト
+
+| 項目 | 月次コスト | 備考 |
+|---|---|---|
+| n8n（セルフホスト） | 0円 | NUCマシンの電気代のみ |
+| Anthropic API | 2,000〜5,000円 | WF内のClaude呼び出し |
+| Supabase | 0円 | Free tier（pgvector含む） |
+| GitHub Actions | 0円 | Free tier内 |
+| Vercel | 0円 | Free tier |
+| 電気代（NUC 24時間稼働） | 約800円/月 | 15W × 24h × 30日 × 27円/kWh |
+
+**合計: 3,000〜6,000円/月** で55本のWFが24時間365日稼働する。
+
+---
+
+## 「副業」との接続
+
+このシステムを副業に使うには、**出力レイヤーが収益に繋がっている必要がある**。
+
+```
+X投稿（自動生成→承認→投稿）→ フォロワー獲得 → note / TYL への誘導
+
+Zenn記事（Obsidian → WF-ZENN-TRIAGE → 自動公開）
+  → Google検索流入 → think-you-lab.vercel.app → TYL月額会員
+
+Obsidianナレッジ → Claude Code セッション効率化
+  → 実装速度向上 → 教材化
+```
+
+「自動化したこと」が直接お金になるのではなく、**自動化がコンテンツ発信の速度と質を上げ、それが収益に繋がる**という構造だ。
 
 ---
 
@@ -407,7 +339,14 @@ WF-DLQ-RETRY（hourlyで自動リトライ）
 
 現在設計中のWF-ZENN-TRIAGE が完成すれば、Obsidianで書いた記事が Slack 承認 → Zenn 自動公開というフローになる。コンテンツの出力速度がさらに上がる予定。
 
-n8n の WF 設計ノウハウは THINK YOU LAB で詳しく共有している。
+---
+
+## 関連記事
+
+このシステムのObsidian側の設計と、Claude Code の hooks 設計については以下を参照してほしい。
+
+- [ObsidianをAIの第二の脳にした：7本のn8nワークフローで作ったナレッジ自動管理システム](/articles/obsidian-n8n-ai-pipeline)
+- [Claude Code hooksを47本実装した話：AIへの自動指示を設計するという仕事](/articles/claude-code-hooks-47)
 
 ---
 
