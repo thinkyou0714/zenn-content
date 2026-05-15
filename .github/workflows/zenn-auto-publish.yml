@@ -1,0 +1,30 @@
+name: zenn-auto-publish
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish scheduled articles
+        uses: x-color/zenn-post-scheduler@v1
+        with:
+          target_key: publish_scheduled
+          path: articles
+
+      - name: Commit and push if changed
+        run: |
+          git config --local user.email 'bot@thinkyou0714.dev'
+          git config --local user.name 'zenn-publisher-bot'
+          git add -u articles
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: auto-publish scheduled articles'
+            git push origin ${{ github.ref_name }}
+          fi
