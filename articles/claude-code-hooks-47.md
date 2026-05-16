@@ -1,13 +1,17 @@
 ---
-title: "Claude Code hooksを47本実装した話：AIへの自動指示を設計するという仕事"
-emoji: "🪝"
-type: "tech"
-topics: ["claudecode", "automation", "bestpractices", "windows"]
-published: false
-publish_scheduled: "2026-05-17T09:00:00+09:00"
-hold_reason: ""
-next_action: "X先出しツイート 09:30 + 30分後リプライで本文URL"
-stage: "SCHEDULED"
+title: Claude Code hooksを47本実装した話：AIへの自動指示を設計するという仕事
+emoji: 🪝
+type: tech
+topics:
+  - claudecode
+  - automation
+  - bestpractices
+  - windows
+published: true
+publish_scheduled: '2026-05-17T09:00:00+09:00'
+hold_reason: ''
+next_action: X先出しツイート 09:30 + 30分後リプライで本文URL
+stage: SCHEDULED
 ---
 
 ## TL;DR
