@@ -1,13 +1,17 @@
 ---
-title: "n8n × Claude Code で55本のWFを動かしている：副業自動化システムの全体像【2026年版】"
-emoji: "⚙️"
-type: "tech"
-topics: ["n8n", "claudecode", "automation", "個人開発"]
-published: false
-publish_scheduled: "2026-05-20T09:00:00+09:00"
-hold_reason: ""
-next_action: "X先出しツイート 09:30 + 30分後リプライで本文URL"
-stage: "SCHEDULED"
+title: n8n × Claude Code で55本のWFを動かしている：副業自動化システムの全体像【2026年版】
+emoji: ⚙️
+type: tech
+topics:
+  - n8n
+  - claudecode
+  - automation
+  - 個人開発
+published: true
+publish_scheduled: '2026-05-20T09:00:00+09:00'
+hold_reason: ''
+next_action: X先出しツイート 09:30 + 30分後リプライで本文URL
+stage: SCHEDULED
 ---
 
 ## TL;DR
