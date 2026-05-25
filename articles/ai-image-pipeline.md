@@ -152,7 +152,7 @@ graph TB
 
 ポイントは3つ。
 
-- **n8n の OpenAI ノードには image オペレーションが標準である**。OpenAI以外のモデルは HTTP Request ノードで叩く
+- **n8n の OpenAI ノードには image オペレーションが標準である**。Google Gemini など一部のノードも画像生成に対応しており、ネイティブノードが無いモデルだけ HTTP Request ノードで叩く
 - 生成画像は **Supabase Storage（S3互換）** に保存し、DBに `article_id / prompt / seed / model / cost / url` を記録する。これで**同じ絵の再取得（再現生成）**ができる
 - 障害は既存の `WF-ERROR-HANDLER`（DLQ）に相乗りさせる。画像API落ちも同じ復旧網に乗る
 
