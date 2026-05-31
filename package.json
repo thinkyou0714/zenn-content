@@ -2,9 +2,18 @@
   "name": "zenn-content",
   "version": "1.0.0",
   "scripts": {
-    "preview": "zenn preview"
+    "preview": "zenn preview",
+    "lint": "npm run lint:md && npm run lint:text && npm run lint:zenn",
+    "lint:md": "markdownlint-cli2",
+    "lint:text": "textlint \"articles/*.md\" README.md",
+    "lint:zenn": "zenn list:articles"
   },
   "dependencies": {
     "zenn-cli": "latest"
+  },
+  "devDependencies": {
+    "markdownlint-cli2": "^0.22.1",
+    "textlint": "^15.7.1",
+    "textlint-rule-preset-ja-technical-writing": "^12.0.2"
   }
 }

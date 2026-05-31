@@ -230,6 +230,7 @@ for (const cluster of clusters) {
 ```
 
 :::details 自動生成されたMOCの例
+
 ```markdown
 # MOC: n8n × Claude Code 統合
 
@@ -246,6 +247,7 @@ for (const cluster of clusters) {
 - [[UnicodeEncodeError cp932 解決記録]]
 - [[async:true と exit 2 非互換]]
 ```
+
 :::
 
 「自分が書いたのに知らなかった関連性」に気づかされる感覚は新鮮だった。

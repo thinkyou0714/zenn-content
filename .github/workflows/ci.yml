@@ -1,0 +1,38 @@
+name: ci
+
+on:
+  pull_request:
+    paths:
+      - 'articles/**'
+      - 'README.md'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.markdownlint-cli2.jsonc'
+      - '.textlintrc.json'
+      - '.github/workflows/ci.yml'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate Zenn articles (frontmatter / build)
+        run: npm run lint:zenn
+
+      - name: Lint Markdown
+        run: npm run lint:md
+
+      - name: Lint Japanese prose (textlint)
+        run: npm run lint:text

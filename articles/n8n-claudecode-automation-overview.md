@@ -226,6 +226,7 @@ def update_workflow(wf_id, payload, api_key, base_url="http://localhost:5679"):
 これを「その都度手動対処」にしたら運用できない。
 
 :::details DLQ（Dead Letter Queue）パターンの全体設計
+
 ```
 WF実行 → エラー発生
   ↓
@@ -239,6 +240,7 @@ WF-DLQ-RETRY（毎時、status=open を自動再実行）
   ↓
 3回失敗で abandoned → 毎朝 WF-OPS-FAILURE-REPORT に記載
 ```
+
 :::
 
 全WFの設定に `"errorWorkflow": "IAARcITmwrAsHjpY"` を入れている。これが入っていないと、エラーが起きても誰も気づかない。
