@@ -9,7 +9,7 @@
     "lint:zenn": "zenn list:articles"
   },
   "dependencies": {
-    "zenn-cli": "latest"
+    "zenn-cli": "^0.4.8"
   },
   "devDependencies": {
     "markdownlint-cli2": "^0.22.1",

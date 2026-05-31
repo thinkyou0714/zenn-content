@@ -16,7 +16,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Publish scheduled articles
-        uses: x-color/zenn-post-scheduler@v1.1.0
+        # サプライチェーン対策としてサードパーティ Action はコミットSHAにピン留め（タグは可変のため）
+        uses: x-color/zenn-post-scheduler@4cb199c1c8653465a42bac2e6c7fbccdc5aeb5fb # v1.1.0
         with:
           target_key: publish_scheduled
           path: articles

@@ -1,5 +1,7 @@
 # zenn-content
 
+[![ci](https://github.com/thinkyou0714/zenn-content/actions/workflows/ci.yml/badge.svg)](https://github.com/thinkyou0714/zenn-content/actions/workflows/ci.yml)
+
 [Zenn](https://zenn.dev/) で公開している技術記事のソースリポジトリです。
 Claude Code / n8n / Obsidian を使った副業自動化システムの実践記録を中心にまとめています。
 
@@ -30,6 +32,19 @@ Claude Code / n8n / Obsidian を使った副業自動化システムの実践記
 npm install
 npm run preview   # zenn preview（http://localhost:8000）
 ```
+
+## 品質チェック（Lint）
+
+PR では CI（[`ci.yml`](.github/workflows/ci.yml)）が以下を自動実行します。ローカルでも同じチェックを実行できます。
+
+```bash
+npm run lint        # 下記すべてをまとめて実行
+npm run lint:md     # markdownlint（Markdown 整形）
+npm run lint:text   # textlint（日本語の客観的な誤り検出）
+npm run lint:zenn   # zenn list:articles（frontmatter 検証）
+```
+
+textlint は一人称・だ体・口語の文体を尊重し、スタイル指摘ではなく「ら抜き・二重否定・半角カナ・冗長表現・誤用」など客観的な誤りのみを検出する設定です（[`.textlintrc.json`](.textlintrc.json)）。
 
 ## 予約公開の仕組み
 
