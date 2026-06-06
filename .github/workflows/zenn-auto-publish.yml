@@ -7,8 +7,11 @@ on:
     - cron: '*/15 0 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
-  group: zenn-auto-publish-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
