@@ -9,9 +9,6 @@ topics:
   - 個人開発
 published: true
 publish_scheduled: '2026-05-20T09:00:00+09:00'
-hold_reason: ''
-next_action: X先出しツイート 09:30 + 30分後リプライで本文URL
-stage: SCHEDULED
 ---
 
 :::message
@@ -30,6 +27,7 @@ stage: SCHEDULED
 :::
 
 :::details この記事の対象読者・前提・得られること
+
 - **対象**: n8n / Make / Zapier で自動化を組んでいる（組みたい）個人開発者・副業勢
 - **前提**: ノーコード自動化ツールを一度は試したことがある
 - **得られること**: 数十本規模を破綻させない3レイヤー設計と、エラー復旧（DLQ）の考え方
@@ -243,17 +241,21 @@ def update_workflow(wf_id, payload, api_key, base_url="http://localhost:5679"):
 これを「その都度手動対処」にしたら運用できない。
 
 :::details DLQ（Dead Letter Queue）パターンの全体設計
-```mermaid
-graph TB
-  A[WF実行] --> B{エラー発生?}
-  B -->|Yes| C[WF-ERROR-HANDLER<br/>全WFの errorWorkflow に設定]
-  C --> D[Supabase n8n_failures に upsert]
-  D --> E[Slack #lab-n8n に通知]
-  E --> F[WF-DLQ-RETRY<br/>毎時 status=open を自動再実行]
-  F --> G{3回失敗?}
-  G -->|Yes| H[abandoned<br/>毎朝 WF-OPS-FAILURE-REPORT に記載]
-  G -->|No| A
+
 ```
+WF実行 → エラー発生
+  ↓
+WF-ERROR-HANDLER（全WFの errorWorkflow に設定）
+  ↓
+Supabase n8n_failures テーブルに upsert
+  ↓
+Slack #lab-n8n に通知
+  ↓
+WF-DLQ-RETRY（毎時、status=open を自動再実行）
+  ↓
+3回失敗で abandoned → 毎朝 WF-OPS-FAILURE-REPORT に記載
+```
+
 :::
 
 全WFの設定に `"errorWorkflow": "IAARcITmwrAsHjpY"` を入れている。これが入っていないと、エラーが起きても誰も気づかない。エラーハンドラ側のWFは **Error Trigger ノードで始める**必要がある点と、**手動実行（テスト実行）では発火せず、本番の自動実行の失敗時のみ動く**点に注意。

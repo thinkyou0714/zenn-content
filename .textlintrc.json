@@ -1,0 +1,19 @@
+{
+  "rules": {
+    "preset-ja-technical-writing": {
+      "//": "本リポジトリは一人称・だ体・口語を意図した文体のため、スタイル系ルールは無効化し、客観的な誤り検出ルールのみ有効にする",
+      "sentence-length": false,
+      "max-comma": false,
+      "max-ten": false,
+      "max-kanji-continuous-len": false,
+      "no-mix-dearu-desumasu": false,
+      "ja-no-mixed-period": false,
+      "no-exclamation-question-mark": false,
+      "ja-no-weak-phrase": false,
+      "no-doubled-joshi": false,
+      "no-doubled-conjunction": false,
+      "ja-no-successive-word": false,
+      "arabic-kanji-numbers": false
+    }
+  }
+}

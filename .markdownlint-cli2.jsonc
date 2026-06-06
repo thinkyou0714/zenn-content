@@ -1,0 +1,15 @@
+{
+  // Zenn 記事向け markdownlint 設定。
+  // Zenn 独自記法（:::message / :::details コンテナ、図表用のコードフェンス、全角テーブル）と
+  // 衝突するスタイル規則のみ無効化し、構造的なルールは有効のまま残す。
+  "config": {
+    "default": true,
+    "MD013": false, // 行長制限: 日本語の本文では無意味なため無効
+    "MD033": false, // インラインHTML: 許可
+    "MD040": false, // コードフェンスの言語指定必須: 図・コマンド出力で素の ``` を多用するため無効
+    "MD041": false, // 先頭行を見出しに: frontmatter があるため無効
+    "MD060": false  // テーブル列スタイル: Zenn で正常描画される全角テーブルを許容
+  },
+  "globs": ["articles/**/*.md", "README.md"],
+  "ignores": ["node_modules"]
+}

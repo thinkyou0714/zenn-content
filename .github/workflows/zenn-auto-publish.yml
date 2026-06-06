@@ -2,7 +2,9 @@ name: zenn-auto-publish
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    # 公開時刻は 09:00 JST 固定運用のため、その枠（00:00-00:45 UTC = 09:00-09:45 JST）だけ
+    # 15分間隔で確認する。終日 */15 で回す必要はない（96回/日 → 4回/日に削減）。
+    - cron: '*/15 0 * * *'
   workflow_dispatch:
 
 concurrency:
@@ -18,7 +20,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Publish scheduled articles
-        uses: x-color/zenn-post-scheduler@v1.1.0
+        # サプライチェーン対策としてサードパーティ Action はコミットSHAにピン留め（タグは可変のため）
+        uses: x-color/zenn-post-scheduler@4cb199c1c8653465a42bac2e6c7fbccdc5aeb5fb # v1.1.0
         with:
           target_key: publish_scheduled
           path: articles

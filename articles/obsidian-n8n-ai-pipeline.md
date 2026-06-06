@@ -9,9 +9,6 @@ topics:
   - claudecode
 published: true
 publish_scheduled: '2026-05-23T09:00:00+09:00'
-hold_reason: ''
-next_action: X先出しツイート 09:30 + 30分後リプライで本文URL
-stage: SCHEDULED
 ---
 
 :::message
@@ -31,6 +28,7 @@ stage: SCHEDULED
 :::
 
 :::details この記事の対象読者・前提・得られること
+
 - **対象**: Obsidian にメモは溜まるが活用できていない人、「第二の脳」を仕組み化したい人
 - **前提**: Obsidian でノートを取った経験がある
 - **得られること**: ベクトル検索を土台にしたナレッジ自動管理（埋め込み / タグ付け / MOC / 復習）の設計
@@ -260,6 +258,7 @@ for (const cluster of clusters) {
 ```
 
 :::details 自動生成されたMOCの例
+
 ```markdown
 # MOC: n8n × Claude Code 統合
 
@@ -276,6 +275,7 @@ for (const cluster of clusters) {
 - [[UnicodeEncodeError cp932 解決記録]]
 - [[async:true と exit 2 非互換]]
 ```
+
 :::
 
 「自分が書いたのに知らなかった関連性」に気づかされる感覚は新鮮だった。
